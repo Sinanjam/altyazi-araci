@@ -1,0 +1,654 @@
+<!doctype html>
+<html lang="tr">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=0" />
+  <title>Altyazı Aracı</title>
+  <style>
+    :root {
+      --bg-color: #f8f9fa;
+      --card-bg: #ffffff;
+      --text-main: #212529;
+      --text-muted: #6c757d;
+      --accent: #e63946;
+      --accent-hover: #d90429;
+      --border: #dee2e6;
+      --radius: 12px;
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+      background-color: var(--bg-color);
+      color: var(--text-main);
+      line-height: 1.45;
+      padding: 10px;
+    }
+    .container { max-width: 1200px; margin: 0 auto; }
+    header { margin-bottom: 14px; text-align: center; padding-top: 8px; }
+    .brand-wordmark { width: min(360px, 78vw); max-height: 92px; object-fit: contain; display: block; margin: 0 auto 2px; }
+    header h1 { font-size: 1.72rem; font-weight: 950; color: var(--accent); letter-spacing: -0.4px; text-transform: uppercase; margin-top: 0; }
+    .layout { display: grid; grid-template-columns: 1fr 400px; gap: 16px; align-items: start; }
+    @media (max-width: 900px) { .layout { grid-template-columns: 1fr; } }
+    .panel { background: var(--card-bg); border: 1px solid var(--border); border-radius: var(--radius); padding: 14px; box-shadow: 0 4px 15px rgba(0,0,0,.05); }
+    .panel h2 { font-size: 1.03rem; margin-bottom: 12px; color: var(--accent); display: flex; align-items: center; gap: 8px; border-bottom: 2px solid #f1f3f5; padding-bottom: 8px; }
+    .form-group { margin-bottom: 13px; }
+    .form-group label { display: block; font-size: .88rem; font-weight: 650; margin-bottom: 6px; color: var(--text-main); }
+    input[type="file"] { display: block; width: 100%; padding: 10px; background: #f8f9fa; border: 1.5px dashed var(--accent); border-radius: 8px; color: var(--text-main); cursor: pointer; font-weight: 500; font-size: .9rem; }
+    input[type="file"]::-webkit-file-upload-button { background: var(--accent); color: white; border: none; padding: 8px 12px; border-radius: 4px; font-weight: bold; margin-right: 10px; }
+    input[type="text"], input[type="password"], select, input[type="number"], input[type="color"] { width: 100%; padding: 10px; background: #fff; border: 1px solid var(--border); color: var(--text-main); border-radius: 8px; font-family: inherit; }
+    input[type="color"] { padding: 0; height: 38px; cursor: pointer; }
+    textarea { width: 100%; height: 112px; background: #f8f9fa; border: 1px solid var(--border); color: var(--text-main); padding: 12px; border-radius: 8px; font-family: monospace; font-size: 14px; resize: vertical; }
+    .srt-editor { width: 100%; min-height: 142px; max-height: 260px; overflow-y: auto; background: #f8f9fa; border: 1px solid var(--border); color: var(--text-main); padding: 12px; border-radius: 8px; font-family: monospace; font-size: 14px; line-height: 1.42; white-space: pre-wrap; word-break: break-word; }
+    .srt-editor:focus { outline: none; border-color: var(--accent); background: #fff; }
+    .srt-editor:empty:before { content: attr(data-placeholder); color: #9aa0a6; pointer-events: none; }
+    .ai-suspect { color: #d90429; background: rgba(217,4,41,.09); border-bottom: 1px dashed #d90429; border-radius: 3px; padding: 0 1px; }
+    .ai-suspect[data-cleaned="true"] { color: inherit; background: transparent; border-bottom: none; padding: 0; }
+    textarea:focus, input:focus, select:focus { outline: none; border-color: var(--accent); }
+    .settings-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+    .sub-settings-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-top: 8px; background: #f8f9fa; padding: 10px; border-radius: 8px; border: 1px solid var(--border); }
+    button { background: var(--accent); color: white; border: none; padding: 14px 24px; font-size: 1rem; font-weight: 800; border-radius: 8px; cursor: pointer; width: 100%; transition: all .2s; display: flex; justify-content: center; align-items: center; gap: 8px; box-shadow: 0 4px 6px rgba(230,57,70,.3); margin-top: 12px; }
+    button:hover { background: var(--accent-hover); }
+    button:disabled { background: var(--border); color: var(--text-muted); cursor: not-allowed; box-shadow: none; }
+    .preview-container { position: relative; width: 100%; background: #000; border-radius: var(--radius); overflow: hidden; aspect-ratio: 9 / 16; border: 1px solid var(--border); display: flex; justify-content: center; align-items: center; }
+    #sourceVideo { width: 100%; height: 100%; object-fit: contain; background: #000; display: block; }
+    .overlay-layer { position: absolute; inset: 0; pointer-events: none; overflow: hidden; }
+    #previewLogo { position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%); max-width: 60%; display: none; touch-action: none; pointer-events: auto; cursor: grab; }
+    #previewLogo.dragging { cursor: grabbing; }
+    #subtitlePreview { position: absolute; left: 8%; right: 8%; text-align: center; color: #fff; font-weight: 800; white-space: pre-line; line-height: 1.18; text-shadow: 0 2px 2px #000, 0 0 5px #000; }
+    #floatingPreview { position: absolute; color: #fff; font-weight: 700; white-space: nowrap; text-align: center; text-shadow: 0 2px 3px rgba(0,0,0,.85); transform: translate(-50%, -50%); }
+    .tap-hint { position: absolute; bottom: 10px; left: 50%; transform: translateX(-50%); background: rgba(0,0,0,.55); color: white; padding: 6px 10px; border-radius: 999px; font-size: .78rem; pointer-events: none; }
+    .status-bar { margin-top: 13px; padding: 12px; border-radius: 8px; background: #f8f9fa; font-size: .9rem; text-align: center; font-weight: 600; border: 1px solid var(--border); }
+    .note { font-size: .78rem; color: var(--text-muted); margin-top: 5px; }
+    .ai-card { padding: 12px; background: #fff5f5; border: 1px solid #f5c6cb; border-radius: 8px; }
+    .ai-main-btn { background: #343a40 !important; margin-top: 8px; box-shadow: 0 4px 6px rgba(52,58,64,.24); }
+    .api-info-card { margin-top: 10px; padding: 11px; background: #fff; border: 1px solid #f1b6bd; border-radius: 10px; }
+    .api-info-head { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-bottom: 6px; }
+    .api-info-title { font-size: .86rem; font-weight: 900; color: #721c24; }
+    .api-head-actions { display: flex; align-items: center; gap: 7px; }
+    .api-badge { white-space: nowrap; font-size: .72rem; font-weight: 900; color: white; background: var(--text-muted); padding: 4px 8px; border-radius: 999px; }
+    .api-badge.saved { background: var(--accent); }
+    .help-toggle { margin: 0; width: 30px; height: 30px; min-width: 30px; padding: 0; border-radius: 50%; box-shadow: none; font-size: .95rem; font-weight: 950; background: var(--accent); color: #fff; }
+    .api-help-body { margin: 8px 0 8px; padding: 10px; border-radius: 9px; background: #fff5f5; border: 1px dashed #f1b6bd; }
+    .api-info-text { font-size: .78rem; color: var(--text-muted); margin: 0; line-height: 1.35; }
+    .api-info-text strong { color: #721c24; }
+    .api-check { display: flex !important; align-items: flex-start; gap: 8px; margin-top: 9px !important; font-size: .78rem !important; font-weight: 700 !important; color: #721c24 !important; line-height: 1.35; }
+    .api-check input { width: 18px; height: 18px; margin-top: 1px; accent-color: var(--accent); flex: 0 0 auto; }
+    .api-editor { margin-top: 9px; padding-top: 9px; border-top: 1px dashed #f1b6bd; }
+    .api-actions { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 8px; margin-top: 8px; }
+    @media (max-width: 420px) { .api-actions { grid-template-columns: 1fr; } }
+    .mini-btn { margin-top: 0; padding: 9px 10px; font-size: .82rem; border-radius: 7px; box-shadow: none; }
+    .mini-btn.secondary { background: #fff; color: var(--accent); border: 1px solid var(--accent); }
+    .mini-btn.danger { background: #6c757d; color: #fff; }
+    .hidden { display: none !important; }
+  </style>
+</head>
+<body>
+<div class="container">
+  <header>
+    <img src="sinanjam_wordmark.png" class="brand-wordmark" alt="Sinanjam">
+    <h1>Altyazı Aracı</h1>
+  </header>
+
+  <div class="layout">
+    <div class="panel">
+      <h2>✍️ Ayarlar</h2>
+      <div class="form-group">
+        <label>Videonuzu Seçin (.mp4, .mov)</label>
+        <input type="file" id="videoUpload" accept="video/*" />
+      </div>
+      <div class="form-group">
+        <label>Özel Logo (Transparan PNG)</label>
+        <input type="file" id="logoUpload" accept="image/*" />
+        <div class="sub-settings-grid">
+          <div><label style="font-size:.8rem; font-weight:normal;">Logo Boyutu (%)</label><input type="number" id="logoSize" value="25" min="5" max="100" /></div>
+          <div><label style="font-size:.8rem; font-weight:normal;">Opaklık (%)</label><input type="number" id="logoOpacity" value="80" min="0" max="100" /></div>
+        </div>
+      </div>
+      <div class="form-group" style="padding:12px; background:#fff5f5; border:1px solid #f5c6cb; border-radius:8px;">
+        <label style="color:#721c24; margin-bottom:8px;">🔄 Hareketli Kayan Yazı</label>
+        <input type="text" id="floatingText" value="" />
+        <div class="sub-settings-grid" style="background:white;">
+          <div style="grid-column:span 2;"><label style="font-size:.8rem; font-weight:normal;">Animasyon</label><select id="floatingAnimType"><option value="none">Kapalı</option><option value="dvd">Zıplayan (DVD)</option><option value="marquee">Kayan Yazı</option></select></div>
+          <div><label style="font-size:.8rem; font-weight:normal;">Boyut (px)</label><input type="number" id="floatingSize" value="28" min="8" max="60" /></div>
+          <div><label style="font-size:.8rem; font-weight:normal;">Opaklık (%)</label><input type="number" id="floatingOpacity" value="50" min="0" max="100" /></div>
+          <div style="grid-column:span 2;"><label style="font-size:.8rem; font-weight:normal;">Yazı Rengi</label><input type="color" id="floatingColor" value="#ffffff" /></div>
+        </div>
+      </div>
+      <div class="form-group">
+        <label>Altyazılar (SRT)</label>
+        <textarea id="srtInput" class="hidden" aria-hidden="true"></textarea>
+        <div id="srtEditor" class="srt-editor" contenteditable="true" spellcheck="false" data-placeholder="1&#10;00:00:00,000 --> 00:00:05,000&#10;Altyazı buraya..."></div>
+        <div class="note">AI'nin şüpheli gördüğü kelimeler burada kırmızı görünür; videoya kırmızı basılmaz. Kırmızı kelimeyi düzenleyince işaret kalkar.</div>
+      </div>
+      <div class="form-group ai-card">
+        <label style="color:#721c24; margin-bottom:8px;">🤖 AI SRT</label>
+        <button id="aiSrtBtn" type="button" disabled class="ai-main-btn">AI ile SRT Oluştur</button>
+        <div class="api-info-card">
+          <div class="api-info-head">
+            <div class="api-info-title">Groq API bağlantısı</div>
+            <div class="api-head-actions">
+              <div id="apiStateBadge" class="api-badge">API yok</div>
+              <button id="toggleAiHelpBtn" type="button" class="help-toggle" aria-label="AI SRT bilgisi">?</button>
+            </div>
+          </div>
+          <div id="aiHelpBody" class="api-help-body hidden">
+            <p class="api-info-text"><strong>AI Doğruluk modu</strong> sadece Türkçe çalışır ve Türkçe imla kurallarına dikkat edecek şekilde ayarlanmıştır. Ücretsiz Groq kullanımında çıkarılan ses <strong>25 MB altında</strong> olmalıdır; aşarsa işlem başlatılmaz. Premium/özel API altyapısında limitin farklıysa düzenleme kısmından 25 MB kontrolünü kapatabilirsin; API reddederse hata gösterilir. AI sesi <strong>3 kez tarar</strong>, sonuçları karşılaştırır ve şüpheli kelimeleri düzenleme kutusunda kırmızı gösterir. Kırmızı işaretler sadece SRT düzenleme alanındadır, videoya basılmaz. AI; konuşma, şarkı, slogan, kalabalık vokali, laylay, ooo ooo, heey gibi duyulan sesleri de yazmaya çalışır.</p>
+          </div>
+          <button id="toggleApiEditorBtn" type="button" class="mini-btn secondary">API'yi düzenle</button>
+          <div id="apiEditor" class="api-editor hidden">
+            <input type="password" id="groqApiKey" placeholder="Groq API Key" autocomplete="off" />
+            <label class="api-check"><input type="checkbox" id="premiumLimitOverride" /> Premium/özel API: 25 MB uygulama kontrolünü kaldır</label>
+            <div class="api-actions">
+              <button id="pasteApiKeyBtn" type="button" class="mini-btn secondary">Yapıştır</button>
+              <button id="saveApiKeyBtn" type="button" class="mini-btn">Kaydet</button>
+              <button id="clearApiKeyBtn" type="button" class="mini-btn danger">Sil</button>
+            </div>
+            <div id="apiHint" class="note">Key sadece bu uygulamanın verisinde tutulur.</div>
+          </div>
+        </div>
+      </div>
+      <div class="settings-grid">
+        <div class="form-group"><label>Yazı Boyutu</label><input type="number" id="fontSize" value="32" min="12" max="80" /></div>
+        <div class="form-group"><label>Yazı Rengi</label><input type="color" id="fontColor" value="#ffffff" /></div>
+        <div class="form-group" style="grid-column:span 2;"><label>Altyazı Yüksekliği (Aşağı-Yukarı %)</label><input type="number" id="textYPos" value="80" min="10" max="100" /></div>
+      </div>
+      <button id="exportBtn" disabled>MP4 Olarak Kaydet</button>
+      <div id="status" class="status-bar hidden"></div>
+    </div>
+
+    <div class="panel" style="padding:10px;">
+      <h2 style="margin-bottom:10px; font-size:1rem; color:var(--text-muted); justify-content:center; border:none;">Önizleme</h2>
+      <div class="preview-container" id="previewContainer">
+        <video id="sourceVideo" playsinline controls preload="metadata"></video>
+        <div class="overlay-layer">
+          <img id="previewLogo" alt="Logo" />
+          <div id="floatingPreview"></div>
+          <div id="subtitlePreview"></div>
+          <div id="tapHint" class="tap-hint">Videoyu seç, sesi aç ve oynat</div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+  const video = document.getElementById('sourceVideo');
+  const previewContainer = document.getElementById('previewContainer');
+  const videoUpload = document.getElementById('videoUpload');
+  const logoUpload = document.getElementById('logoUpload');
+  const previewLogo = document.getElementById('previewLogo');
+  const subtitlePreview = document.getElementById('subtitlePreview');
+  const floatingPreview = document.getElementById('floatingPreview');
+  const tapHint = document.getElementById('tapHint');
+  const exportBtn = document.getElementById('exportBtn');
+  const aiSrtBtn = document.getElementById('aiSrtBtn');
+  const groqApiKeyInput = document.getElementById('groqApiKey');
+  const premiumLimitOverrideInput = document.getElementById('premiumLimitOverride');
+  const toggleApiEditorBtn = document.getElementById('toggleApiEditorBtn');
+  const apiEditor = document.getElementById('apiEditor');
+  const pasteApiKeyBtn = document.getElementById('pasteApiKeyBtn');
+  const saveApiKeyBtn = document.getElementById('saveApiKeyBtn');
+  const clearApiKeyBtn = document.getElementById('clearApiKeyBtn');
+  const apiStateBadge = document.getElementById('apiStateBadge');
+  const apiHint = document.getElementById('apiHint');
+  const toggleAiHelpBtn = document.getElementById('toggleAiHelpBtn');
+  const aiHelpBody = document.getElementById('aiHelpBody');
+  const statusBox = document.getElementById('status');
+
+  const srtInput = document.getElementById('srtInput');
+  const srtEditor = document.getElementById('srtEditor');
+  const fontSizeInput = document.getElementById('fontSize');
+  const fontColorInput = document.getElementById('fontColor');
+  const textYPosInput = document.getElementById('textYPos');
+  const logoSizeInput = document.getElementById('logoSize');
+  const logoOpacityInput = document.getElementById('logoOpacity');
+  const floatingTextInput = document.getElementById('floatingText');
+  const floatingAnimTypeInput = document.getElementById('floatingAnimType');
+  const floatingSizeInput = document.getElementById('floatingSize');
+  const floatingOpacityInput = document.getElementById('floatingOpacity');
+  const floatingColorInput = document.getElementById('floatingColor');
+
+  let subtitles = [];
+  let raf = null;
+  let logoUrl = null;
+  let logoX = 0.5;
+  let logoY = 0.5;
+  let logoDragging = false;
+
+  let savedGroqKey = '';
+  let savedPremiumLimitOverride = false;
+
+  function readSavedApiKey() {
+    let key = '';
+    try {
+      if (window.AndroidBridge && typeof window.AndroidBridge.getSavedGroqApiKey === 'function') {
+        key = window.AndroidBridge.getSavedGroqApiKey() || '';
+      }
+    } catch (_) {}
+    if (!key) {
+      try { key = localStorage.getItem('groq_api_key') || ''; } catch (_) {}
+    }
+    let premiumOverride = false;
+    try {
+      if (window.AndroidBridge && typeof window.AndroidBridge.getPremiumLimitOverride === 'function') {
+        premiumOverride = !!window.AndroidBridge.getPremiumLimitOverride();
+      } else {
+        premiumOverride = localStorage.getItem('premium_limit_override') === '1';
+      }
+    } catch (_) {
+      try { premiumOverride = localStorage.getItem('premium_limit_override') === '1'; } catch (__) {}
+    }
+    savedGroqKey = key.trim();
+    savedPremiumLimitOverride = premiumOverride;
+    groqApiKeyInput.value = savedGroqKey;
+    premiumLimitOverrideInput.checked = savedPremiumLimitOverride;
+    updateApiState();
+  }
+
+  function saveApiKey(key) {
+    savedGroqKey = (key || '').trim();
+    try { localStorage.setItem('groq_api_key', savedGroqKey); } catch (_) {}
+    try {
+      if (window.AndroidBridge && typeof window.AndroidBridge.saveGroqApiKey === 'function') {
+        window.AndroidBridge.saveGroqApiKey(savedGroqKey);
+      }
+    } catch (_) {}
+    groqApiKeyInput.value = savedGroqKey;
+    updateApiState();
+  }
+
+  function savePremiumLimitOverride(enabled) {
+    savedPremiumLimitOverride = !!enabled;
+    premiumLimitOverrideInput.checked = savedPremiumLimitOverride;
+    try { localStorage.setItem('premium_limit_override', savedPremiumLimitOverride ? '1' : '0'); } catch (_) {}
+    try {
+      if (window.AndroidBridge && typeof window.AndroidBridge.savePremiumLimitOverride === 'function') {
+        window.AndroidBridge.savePremiumLimitOverride(savedPremiumLimitOverride);
+      }
+    } catch (_) {}
+  }
+
+  function clearApiKey() {
+    savedGroqKey = '';
+    groqApiKeyInput.value = '';
+    try { localStorage.removeItem('groq_api_key'); } catch (_) {}
+    try {
+      if (window.AndroidBridge && typeof window.AndroidBridge.clearGroqApiKey === 'function') {
+        window.AndroidBridge.clearGroqApiKey();
+      }
+    } catch (_) {}
+    updateApiState();
+  }
+
+  function updateApiState() {
+    const hasKey = !!savedGroqKey;
+    apiStateBadge.textContent = hasKey ? 'API kayıtlı' : 'API yok';
+    apiStateBadge.classList.toggle('saved', hasKey);
+    toggleApiEditorBtn.textContent = hasKey ? "API'yi düzenle" : 'API ekle';
+    apiHint.textContent = hasKey ? 'API Key kaydedildi. AI Doğruluk modu Türkçe çalışır.' : 'Groq API Key girip Kaydet de. Key uygulamada saklanır.';
+  }
+
+  function showStatus(text) {
+    statusBox.textContent = text;
+    statusBox.classList.remove('hidden');
+  }
+
+  function hideStatus() {
+    statusBox.textContent = '';
+    statusBox.classList.add('hidden');
+  }
+  function stripAiMarkers(text) {
+    return (text || '').replace(/⟦([\s\S]*?)⟧/g, '$1');
+  }
+
+  function escapeHtml(text) {
+    return (text || '').replace(/[&<>"']/g, ch => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[ch]));
+  }
+
+  function markedSrtToHtml(markedText) {
+    const raw = markedText || '';
+    let html = '';
+    let last = 0;
+    const re = /⟦([\s\S]*?)⟧/g;
+    let m;
+    while ((m = re.exec(raw)) !== null) {
+      html += escapeHtml(raw.slice(last, m.index));
+      html += '<span class="ai-suspect">' + escapeHtml(m[1]) + '</span>';
+      last = re.lastIndex;
+    }
+    html += escapeHtml(raw.slice(last));
+    return html;
+  }
+
+  function plainTextFromEditor() {
+    return (srtEditor.innerText || '').replace(/\u00a0/g, ' ').replace(/\n{4,}/g, '\n\n\n').trim();
+  }
+
+  function syncSrtFromEditor() {
+    srtInput.value = stripAiMarkers(plainTextFromEditor());
+    loadSubtitles();
+    updateOverlay();
+  }
+
+  function setSrtEditorPlain(text) {
+    const clean = stripAiMarkers(text || '');
+    srtEditor.textContent = clean;
+    srtInput.value = clean;
+    loadSubtitles();
+    updateOverlay();
+  }
+
+  function setSrtEditorMarked(markedText) {
+    const marked = markedText || '';
+    srtEditor.innerHTML = markedSrtToHtml(marked);
+    srtInput.value = stripAiMarkers(srtEditor.innerText || marked);
+    loadSubtitles();
+    updateOverlay();
+  }
+
+  function getSelectionSuspectSpan() {
+    const sel = window.getSelection && window.getSelection();
+    if (!sel || sel.rangeCount === 0) return null;
+    let node = sel.anchorNode;
+    if (!node) return null;
+    if (node.nodeType === Node.TEXT_NODE) node = node.parentNode;
+    if (!node || !srtEditor.contains(node)) return null;
+    return node.closest ? node.closest('.ai-suspect') : null;
+  }
+
+  function unwrapSuspectSpan(span) {
+    if (!span || !span.parentNode) return;
+    const textNode = document.createTextNode(span.textContent || '');
+    span.parentNode.replaceChild(textNode, span);
+  }
+
+
+  function parseTime(timeString) {
+    const parts = timeString.replace(',', '.').trim().split(':');
+    if (parts.length !== 3) return 0;
+    const h = parseInt(parts[0], 10) || 0;
+    const m = parseInt(parts[1], 10) || 0;
+    const sp = parts[2].split('.');
+    const s = parseInt(sp[0], 10) || 0;
+    const ms = sp[1] ? parseInt((sp[1] + '000').slice(0, 3), 10) : 0;
+    return (h * 3600 + m * 60 + s) * 1000 + ms;
+  }
+
+  function loadSubtitles() {
+    subtitles = [];
+    const text = srtInput.value.trim();
+    if (!text) return;
+    const blocks = text.split(/\n\s*\n/);
+    for (const block of blocks) {
+      const lines = block.split('\n').map(x => x.trimEnd()).filter(Boolean);
+      if (lines.length < 2) continue;
+      const timeIndex = lines.findIndex(line => line.includes('-->'));
+      if (timeIndex < 0) continue;
+      const parts = lines[timeIndex].split('-->');
+      if (parts.length !== 2) continue;
+      const body = lines.slice(timeIndex + 1).join('\n').trim();
+      if (!body) continue;
+      subtitles.push({ start: parseTime(parts[0]), end: parseTime(parts[1]), text: body });
+    }
+  }
+
+  function activeSubtitle(timeMs) {
+    return subtitles.find(s => timeMs >= s.start && timeMs <= s.end);
+  }
+
+  function updateOverlay() {
+    const duration = Number.isFinite(video.duration) && video.duration > 0 ? video.duration : 1;
+    const t = Number.isFinite(video.currentTime) ? video.currentTime : 0;
+
+    if (logoUrl) {
+      previewLogo.style.display = 'block';
+      previewLogo.style.width = `${logoSizeInput.value}%`;
+      previewLogo.style.left = `${Math.max(0, Math.min(1, logoX)) * 100}%`;
+      previewLogo.style.top = `${Math.max(0, Math.min(1, logoY)) * 100}%`;
+      previewLogo.style.opacity = `${Math.max(0, Math.min(100, Number(logoOpacityInput.value) || 0)) / 100}`;
+    } else {
+      previewLogo.style.display = 'none';
+    }
+
+    const sub = activeSubtitle(t * 1000);
+    subtitlePreview.textContent = sub ? sub.text : '';
+    subtitlePreview.style.bottom = `${Math.max(0, 100 - (Number(textYPosInput.value) || 80))}%`;
+    const previewWidth = Math.max(280, previewContainer.clientWidth || 360);
+    const requestedSize = Number(fontSizeInput.value) || 32;
+    const previewFontPx = Math.max(16, Math.min(56, requestedSize * (previewWidth / 390) * 0.82));
+    subtitlePreview.style.fontSize = `${previewFontPx}px`;
+    subtitlePreview.style.color = fontColorInput.value;
+
+    const fText = floatingTextInput.value.trim();
+    const fAnim = floatingAnimTypeInput.value;
+    if (fText && fAnim !== 'none') {
+      floatingPreview.textContent = fText;
+      floatingPreview.style.display = 'block';
+      const requestedFloatingSize = Number(floatingSizeInput.value) || 28;
+      const floatingFontPx = Math.max(10, Math.min(42, requestedFloatingSize * (previewWidth / 390) * 0.72));
+      floatingPreview.style.fontSize = `${floatingFontPx}px`;
+      floatingPreview.style.color = floatingColorInput.value;
+      floatingPreview.style.opacity = `${Math.max(0, Math.min(100, Number(floatingOpacityInput.value) || 0)) / 100}`;
+      if (fAnim === 'marquee') {
+        const cycle = 8;
+        const p = (t % cycle) / cycle;
+        floatingPreview.style.left = `${110 - p * 130}%`;
+        floatingPreview.style.top = '15%';
+      } else {
+        const x = 10 + Math.abs(((t * 16) % 160) - 80);
+        const y = 12 + Math.abs(((t * 11) % 150) - 75);
+        floatingPreview.style.left = `${x}%`;
+        floatingPreview.style.top = `${y}%`;
+      }
+    } else {
+      floatingPreview.style.display = 'none';
+    }
+
+    tapHint.style.display = video.src && !video.paused ? 'none' : 'block';
+    raf = requestAnimationFrame(updateOverlay);
+  }
+
+  function collectSettings() {
+    loadSubtitles();
+    return {
+      subtitles,
+      srtRaw: srtInput.value || '',
+      fontSize: Number(fontSizeInput.value) || 32,
+      fontColor: fontColorInput.value || '#ffffff',
+      textYPos: Number(textYPosInput.value) || 80,
+      logoSize: Number(logoSizeInput.value) || 25,
+      logoOpacity: Number(logoOpacityInput.value) || 80,
+      logoX: Math.max(0, Math.min(1, logoX)),
+      logoY: Math.max(0, Math.min(1, logoY)),
+      floatingText: floatingTextInput.value || '',
+      floatingAnimType: floatingAnimTypeInput.value || 'none',
+      floatingSize: Number(floatingSizeInput.value) || 28,
+      floatingOpacity: Number(floatingOpacityInput.value) || 50,
+      floatingColor: floatingColorInput.value || '#ffffff',
+      fps: 60,
+      maxLongSide: 1920
+    };
+  }
+
+  function setLogoPositionFromClient(clientX, clientY) {
+    const rect = previewContainer.getBoundingClientRect();
+    if (!rect.width || !rect.height) return;
+    logoX = Math.max(0.03, Math.min(0.97, (clientX - rect.left) / rect.width));
+    logoY = Math.max(0.03, Math.min(0.97, (clientY - rect.top) / rect.height));
+    updateOverlay();
+  }
+
+  previewLogo.addEventListener('pointerdown', e => {
+    if (!logoUrl) return;
+    logoDragging = true;
+    previewLogo.classList.add('dragging');
+    try { previewLogo.setPointerCapture(e.pointerId); } catch (_) {}
+    setLogoPositionFromClient(e.clientX, e.clientY);
+    e.preventDefault();
+  });
+
+  previewLogo.addEventListener('pointermove', e => {
+    if (!logoDragging) return;
+    setLogoPositionFromClient(e.clientX, e.clientY);
+    e.preventDefault();
+  });
+
+  function stopLogoDrag(e) {
+    if (!logoDragging) return;
+    logoDragging = false;
+    previewLogo.classList.remove('dragging');
+    if (e) e.preventDefault();
+  }
+
+  previewLogo.addEventListener('pointerup', stopLogoDrag);
+  previewLogo.addEventListener('pointercancel', stopLogoDrag);
+
+  videoUpload.addEventListener('change', e => {
+    const file = e.target.files && e.target.files[0];
+    if (!file) return;
+    const url = URL.createObjectURL(file);
+    video.src = url;
+    video.muted = false;
+    video.volume = 1;
+    exportBtn.disabled = true;
+    exportBtn.textContent = 'Video yükleniyor...';
+    video.onloadedmetadata = () => {
+      exportBtn.disabled = false;
+      aiSrtBtn.disabled = false;
+      exportBtn.textContent = 'MP4 Olarak Kaydet';
+      hideStatus();
+      updateOverlay();
+    };
+    video.onerror = () => showStatus('Video açılamadı. Farklı bir MP4 deneyin.');
+  });
+
+  logoUpload.addEventListener('change', e => {
+    const file = e.target.files && e.target.files[0];
+    if (!file) {
+      logoUrl = null;
+      previewLogo.src = '';
+      updateOverlay();
+      return;
+    }
+    logoUrl = URL.createObjectURL(file);
+    previewLogo.src = logoUrl;
+    updateOverlay();
+  });
+
+  [fontSizeInput, fontColorInput, textYPosInput, logoSizeInput, logoOpacityInput,
+   floatingTextInput, floatingAnimTypeInput, floatingSizeInput, floatingOpacityInput, floatingColorInput]
+   .forEach(el => el.addEventListener('input', () => { loadSubtitles(); updateOverlay(); }));
+
+  let activeSuspectBeforeEdit = null;
+  srtEditor.addEventListener('beforeinput', () => {
+    activeSuspectBeforeEdit = getSelectionSuspectSpan();
+  });
+  srtEditor.addEventListener('input', () => {
+    if (activeSuspectBeforeEdit) {
+      unwrapSuspectSpan(activeSuspectBeforeEdit);
+      activeSuspectBeforeEdit = null;
+    }
+    syncSrtFromEditor();
+  });
+  srtEditor.addEventListener('paste', e => {
+    e.preventDefault();
+    const text = (e.clipboardData || window.clipboardData).getData('text/plain') || '';
+    document.execCommand('insertText', false, text);
+  });
+
+  video.addEventListener('play', () => { video.muted = false; video.volume = 1; updateOverlay(); });
+  video.addEventListener('pause', updateOverlay);
+
+  toggleAiHelpBtn.addEventListener('click', () => {
+    aiHelpBody.classList.toggle('hidden');
+  });
+
+  toggleApiEditorBtn.addEventListener('click', () => {
+    apiEditor.classList.toggle('hidden');
+    if (!apiEditor.classList.contains('hidden')) groqApiKeyInput.focus();
+  });
+
+  pasteApiKeyBtn.addEventListener('click', async () => {
+    apiEditor.classList.remove('hidden');
+    groqApiKeyInput.focus();
+    try {
+      if (navigator.clipboard && typeof navigator.clipboard.readText === 'function') {
+        const text = (await navigator.clipboard.readText()).trim();
+        if (text) {
+          groqApiKeyInput.value = text;
+          showStatus('API Key yapıştırıldı. Kaydet tuşuna bas.');
+          return;
+        }
+      }
+    } catch (_) {}
+    showStatus('API alanına basılı tutup Yapıştır seçeneğini kullan.');
+  });
+
+  saveApiKeyBtn.addEventListener('click', () => {
+    const key = groqApiKeyInput.value.trim();
+    if (!key) { showStatus('Groq API Key boş olamaz.'); return; }
+    saveApiKey(key);
+    savePremiumLimitOverride(premiumLimitOverrideInput.checked);
+    apiEditor.classList.add('hidden');
+    showStatus('API Key ve AI ayarı kaydedildi.');
+  });
+
+  clearApiKeyBtn.addEventListener('click', () => {
+    clearApiKey();
+    showStatus('API Key silindi.');
+  });
+
+  premiumLimitOverrideInput.addEventListener('change', () => {
+    savePremiumLimitOverride(premiumLimitOverrideInput.checked);
+    showStatus(premiumLimitOverrideInput.checked ? '25 MB uygulama kontrolü kapatıldı. API limiti varsa işlem yine reddedilebilir.' : '25 MB uygulama kontrolü açık.');
+  });
+
+  window.loadAiSrt = function(srt) {
+    setSrtEditorMarked(srt || '');
+    const hasSuspicious = (srt || '').includes('⟦');
+    showStatus(hasSuspicious ? 'AI çıktısı eklendi. Kırmızı kelimeler şüpheli; düzenleyince kırmızılık kalkar.' : 'AI çıktısı altyazı kutusuna yapıştırıldı. İstersen düzenleyebilirsin.');
+  };
+
+  aiSrtBtn.addEventListener('click', () => {
+    if (!video.src || aiSrtBtn.disabled) return;
+    const typedKey = groqApiKeyInput.value.trim();
+    const key = typedKey || savedGroqKey;
+    if (!key) {
+      showStatus('Önce bilgi alanından Groq API Key ekle.');
+      apiEditor.classList.remove('hidden');
+      groqApiKeyInput.focus();
+      return;
+    }
+    if (typedKey && typedKey !== savedGroqKey) saveApiKey(typedKey);
+    savePremiumLimitOverride(premiumLimitOverrideInput.checked);
+    if (window.AndroidBridge && typeof window.AndroidBridge.startAiSrt === 'function') {
+      const ok = window.AndroidBridge.startAiSrt(key, premiumLimitOverrideInput.checked);
+      if (ok) showStatus('AI Doğruluk modu hazırlanıyor...');
+      else showStatus('AI SRT başlatılamadı.');
+      return;
+    }
+    showStatus('Bu özellik APK içinde çalışır.');
+  });
+
+  readSavedApiKey();
+  setSrtEditorPlain(srtInput.value || '');
+  loadSubtitles();
+  updateOverlay();
+
+  exportBtn.addEventListener('click', () => {
+    if (!video.src || exportBtn.disabled) return;
+    const payload = JSON.stringify(collectSettings());
+    if (window.AndroidBridge && typeof window.AndroidBridge.startBackgroundMp4Export === 'function') {
+      const ok = window.AndroidBridge.startBackgroundMp4Export(payload);
+      if (ok) {
+        hideStatus();
+      } else {
+        showStatus('MP4 başlatılamadı. Video dosyasını tekrar seçip deneyin.');
+      }
+      return;
+    }
+    showStatus('Bu özellik APK içinde çalışır.');
+  });
+</script>
+</body>
+</html>
