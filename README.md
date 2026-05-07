@@ -1,1 +1,0 @@
-° Vibecoding'ten faydalanılmıştır

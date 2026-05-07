@@ -513,26 +513,54 @@ public class ExportService extends Service {
         float maxWidth = width * 0.86f;
         float lineHeight = scaledSize * 1.16f;
 
+        String style = settings.subtitleStyle == null ? "reels" : settings.subtitleStyle;
+        int fillColor = settings.fontColor;
+        int strokeColor = Color.BLACK;
+        float strokeMultiplier = 0.14f;
+        boolean drawStroke = true;
+        boolean heavyShadow = false;
+
+        if ("minimal".equals(style)) {
+            drawStroke = false;
+            strokeMultiplier = 0.06f;
+        } else if ("redWhite".equals(style)) {
+            strokeColor = Color.rgb(230, 57, 70);
+            strokeMultiplier = 0.16f;
+            heavyShadow = true;
+        } else if ("stadium".equals(style)) {
+            strokeColor = Color.BLACK;
+            strokeMultiplier = 0.22f;
+            heavyShadow = true;
+        } else if ("sinanjam".equals(style)) {
+            fillColor = Color.rgb(230, 57, 70);
+            strokeColor = Color.WHITE;
+            strokeMultiplier = 0.18f;
+            heavyShadow = true;
+        } else if ("blackOutline".equals(style)) {
+            strokeMultiplier = 0.18f;
+            heavyShadow = true;
+        }
+
         fill.setStyle(Paint.Style.FILL);
         fill.setTypeface(android.graphics.Typeface.create(android.graphics.Typeface.DEFAULT, android.graphics.Typeface.BOLD));
         fill.setTextAlign(Paint.Align.CENTER);
         fill.setTextSize(scaledSize);
-        fill.setColor(settings.fontColor);
-        fill.setShadowLayer(scaledSize * 0.12f, 2f, 2f, Color.argb(180, 0, 0, 0));
+        fill.setColor(fillColor);
+        fill.setShadowLayer(heavyShadow ? scaledSize * 0.18f : scaledSize * 0.10f, 2f, 2f, Color.argb(190, 0, 0, 0));
 
         stroke.setStyle(Paint.Style.STROKE);
         stroke.setTypeface(fill.getTypeface());
         stroke.setTextAlign(Paint.Align.CENTER);
         stroke.setTextSize(scaledSize);
-        stroke.setStrokeWidth(Math.max(3f, scaledSize * 0.14f));
-        stroke.setColor(Color.BLACK);
+        stroke.setStrokeWidth(Math.max(2f, scaledSize * strokeMultiplier));
+        stroke.setColor(strokeColor);
         stroke.setStrokeJoin(Paint.Join.ROUND);
 
         List<String> lines = wrapLines(text, fill, maxWidth);
         float startY = y - ((lines.size() - 1) * lineHeight) / 2f;
         for (int i = 0; i < lines.size(); i++) {
             float lineY = startY + i * lineHeight;
-            canvas.drawText(lines.get(i), x, lineY, stroke);
+            if (drawStroke) canvas.drawText(lines.get(i), x, lineY, stroke);
             canvas.drawText(lines.get(i), x, lineY, fill);
         }
         fill.clearShadowLayer();
@@ -610,6 +638,7 @@ public class ExportService extends Service {
 
     private static final class ExportSettings {
         final List<Subtitle> subtitles;
+        final String subtitleStyle;
         final float fontSize;
         final int fontColor;
         final float textYPos;
@@ -625,10 +654,11 @@ public class ExportService extends Service {
         final int fps;
         final int maxLongSide;
 
-        private ExportSettings(List<Subtitle> subtitles, float fontSize, int fontColor, float textYPos,
+        private ExportSettings(List<Subtitle> subtitles, String subtitleStyle, float fontSize, int fontColor, float textYPos,
                                float logoSize, float logoOpacity, float logoX, float logoY, String floatingText, String floatingAnimType,
                                float floatingSize, float floatingOpacity, int floatingColor, int fps, int maxLongSide) {
             this.subtitles = subtitles;
+            this.subtitleStyle = subtitleStyle == null ? "reels" : subtitleStyle;
             this.fontSize = fontSize;
             this.fontColor = fontColor;
             this.textYPos = textYPos;
@@ -661,6 +691,7 @@ public class ExportService extends Service {
             }
             return new ExportSettings(
                     subs,
+                    obj.optString("subtitleStyle", "reels"),
                     (float) obj.optDouble("fontSize", 32),
                     parseColorSafe(obj.optString("fontColor", "#ffffff"), Color.WHITE),
                     (float) obj.optDouble("textYPos", 80),

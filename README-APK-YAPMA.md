@@ -1,32 +1,43 @@
-# Altyazı Aracı APK Projesi
+# Altyazı Aracı APK / Release Notları
 
-Bu proje, `videocu.html` dosyasını Android WebView içinde açan hazır APK projesidir.
+Bu repo doğrudan Android proje köküdür. GitHub Actions çalışınca imzalı release APK üretir.
 
-## Ayarlar
+## Build
 
-- Uygulama adı: `Altyazı Aracı`
-- Paket adı: `com.sinanjams.app`
-- Ana HTML: `app/src/main/assets/www/videocu.html`
-- Dikey ekran: açık
-- minSdk: 24
-- targetSdk: 35
-- compileSdk: 35
+GitHub'da:
 
-## Telefonda GitHub ile APK alma
+Actions > Build APK > Run workflow
 
-1. Bu ZIP'i telefonda çıkar.
-2. GitHub'da boş bir repo aç.
-3. ZIP'ten çıkan bütün klasörleri repoya yükle. `.github` klasörünün de yüklendiğinden emin ol.
-4. GitHub > Actions > `Build Android APK` > `Run workflow` çalıştır.
-5. Build bitince `Altyazi-Araci-APK` artifact'ını indir.
-6. İçinden çıkan `app-debug.apk` dosyasını telefona kur.
+Çıktı artifact adı:
 
-## Kurulum notu
+Altyazi-Araci-Release-APK
 
-Telefonda aynı paket adına sahip eski APK varsa ve imzası farklıysa "Uygulama yüklenmedi" hatası çıkabilir. Bu durumda eski uygulamayı kaldırıp yeni APK'yı kur.
+İçindeki APK:
 
-## Dosya seçme / kaydetme
+Altyazi_Araci.apk
 
-- Video ve görsel seçme WebView dosya seçiciyle çalışır.
-- HTML'deki mevcut mantık korunmuştur.
-- Mevcut `Videoyu İndir` butonu aslında canvas'taki kareyi PNG olarak kaydeder. APK içinde bu çıktı `Movies/AltyaziAraci` klasörüne kaydedilir.
+## Güncelleme mantığı
+
+Uygulamanın paket adı değişmemelidir:
+
+com.sinanjams.app
+
+Kullanıcıların eski uygulamayı kaldırmadan yeni APK'yı üstüne kurabilmesi için şunlar korunmalıdır:
+
+- Aynı package/applicationId: com.sinanjams.app
+- Aynı imza dosyası: keystore/altyazi-araci-release.jks
+- Her yeni sürümde daha yüksek versionCode
+
+Bu sürümde versionCode 10, versionName 2.1.0.
+
+Yeni sürüm yayınlarken GitHub Releases'te tag'i şu formatta kullan:
+
+v2.1.0
+v2.1.1
+v2.2.0
+
+Uygulamadaki "Güncelleme Kontrol Et" butonu şu repodaki son release'i kontrol eder:
+
+https://github.com/Sinanjam/altyazi-araci/releases/latest
+
+Repo adı değişirse MainActivity.java içindeki UPDATE_REPO değeri de değişmelidir.

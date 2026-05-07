@@ -21,6 +21,10 @@ import android.webkit.WebViewClient;
 import android.widget.Toast;
 
 import java.util.Locale;
+import java.io.BufferedReader;
+import java.io.InputStreamReader;
+import java.net.HttpURLConnection;
+import java.net.URL;
 import org.json.JSONObject;
 
 public class MainActivity extends Activity {
@@ -30,6 +34,8 @@ public class MainActivity extends Activity {
     private static final String PREF_PENDING_SRT = "pending_ai_srt";
     private static final String PREF_GROQ_API_KEY = "groq_api_key";
     private static final String PREF_PREMIUM_LIMIT_OVERRIDE = "premium_limit_override";
+    private static final String UPDATE_OWNER = "Sinanjam";
+    private static final String UPDATE_REPO = "altyazi-araci";
 
     private WebView webView;
     private ValueCallback<Uri[]> filePathCallback;
@@ -208,6 +214,115 @@ public class MainActivity extends Activity {
         else super.onBackPressed();
     }
 
+
+    private void postUpdateResult(String message) {
+        if (webView == null) return;
+        String quoted = JSONObject.quote(message == null ? "" : message);
+        runOnUiThread(() -> webView.evaluateJavascript("window.onUpdateCheckResult && window.onUpdateCheckResult(" + quoted + ");", null));
+    }
+
+    private String getAppVersionName() {
+        try {
+            return getPackageManager().getPackageInfo(getPackageName(), 0).versionName;
+        } catch (Exception e) {
+            return "";
+        }
+    }
+
+    private int getAppVersionCode() {
+        try {
+            if (Build.VERSION.SDK_INT >= 28) {
+                return (int) getPackageManager().getPackageInfo(getPackageName(), 0).getLongVersionCode();
+            }
+            return getPackageManager().getPackageInfo(getPackageName(), 0).versionCode;
+        } catch (Exception e) {
+            return 0;
+        }
+    }
+
+    private void openUrl(String url) {
+        runOnUiThread(() -> {
+            try {
+                Intent intent = new Intent(Intent.ACTION_VIEW, Uri.parse(url));
+                intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+                startActivity(intent);
+            } catch (Exception e) {
+                postUpdateResult("Güncelleme bulundu ama GitHub açılamadı: " + e.getMessage());
+            }
+        });
+    }
+
+    private void checkLatestRelease() {
+        HttpURLConnection conn = null;
+        try {
+            URL url = new URL("https://api.github.com/repos/" + UPDATE_OWNER + "/" + UPDATE_REPO + "/releases/latest");
+            conn = (HttpURLConnection) url.openConnection();
+            conn.setRequestMethod("GET");
+            conn.setConnectTimeout(12000);
+            conn.setReadTimeout(12000);
+            conn.setRequestProperty("Accept", "application/vnd.github+json");
+            conn.setRequestProperty("User-Agent", "Altyazi-Araci-Android");
+            int code = conn.getResponseCode();
+            if (code == 404) {
+                postUpdateResult("GitHub'da henüz yayınlanmış release bulunamadı.");
+                return;
+            }
+            if (code < 200 || code >= 300) {
+                postUpdateResult("Güncelleme kontrol edilemedi. GitHub yanıtı: " + code);
+                return;
+            }
+            BufferedReader reader = new BufferedReader(new InputStreamReader(conn.getInputStream(), "UTF-8"));
+            StringBuilder body = new StringBuilder();
+            String line;
+            while ((line = reader.readLine()) != null) body.append(line);
+            reader.close();
+
+            JSONObject release = new JSONObject(body.toString());
+            String tag = release.optString("tag_name", "").trim();
+            String releaseName = release.optString("name", tag).trim();
+            String htmlUrl = release.optString("html_url", "https://github.com/" + UPDATE_OWNER + "/" + UPDATE_REPO + "/releases/latest");
+            String currentName = getAppVersionName();
+            int cmp = compareVersionTags(tag, currentName);
+            if (cmp > 0 || (tag.length() > 0 && currentName.length() > 0 && !normalizeVersion(tag).equals(normalizeVersion(currentName)) && cmp == 0)) {
+                postUpdateResult("Yeni sürüm bulundu: " + (releaseName.length() > 0 ? releaseName : tag) + ". GitHub açılıyor; APK'yı indirip eski uygulamayı kaldırmadan üstüne kur.");
+                openUrl(htmlUrl);
+            } else {
+                postUpdateResult("Güncelsin. Yüklü sürüm: " + currentName + " (code " + getAppVersionCode() + ").");
+            }
+        } catch (Exception e) {
+            postUpdateResult("Güncelleme kontrol edilemedi: " + (e.getMessage() == null ? e.getClass().getSimpleName() : e.getMessage()));
+        } finally {
+            if (conn != null) conn.disconnect();
+        }
+    }
+
+    private static String normalizeVersion(String value) {
+        if (value == null) return "";
+        String v = value.trim().toLowerCase(Locale.ROOT);
+        if (v.startsWith("v")) v = v.substring(1);
+        v = v.replaceAll("[^0-9.].*$", "");
+        return v;
+    }
+
+    private static int compareVersionTags(String latestTag, String currentVersionName) {
+        String latest = normalizeVersion(latestTag);
+        String current = normalizeVersion(currentVersionName);
+        if (latest.isEmpty() || current.isEmpty()) return 0;
+        String[] a = latest.split("\\.");
+        String[] b = current.split("\\.");
+        int n = Math.max(a.length, b.length);
+        for (int i = 0; i < n; i++) {
+            int ai = i < a.length ? parseVersionPart(a[i]) : 0;
+            int bi = i < b.length ? parseVersionPart(b[i]) : 0;
+            if (ai != bi) return ai > bi ? 1 : -1;
+        }
+        return 0;
+    }
+
+    private static int parseVersionPart(String part) {
+        try { return Integer.parseInt(part.replaceAll("[^0-9]", "")); } catch (Exception e) { return 0; }
+    }
+
     public class AndroidBridge {
         @JavascriptInterface
         public String getSavedGroqApiKey() {
@@ -247,6 +362,17 @@ public class MainActivity extends Activity {
             try {
                 getSharedPreferences(PREFS_NAME, MODE_PRIVATE).edit().putBoolean(PREF_PREMIUM_LIMIT_OVERRIDE, enabled).apply();
             } catch (Exception ignored) {}
+        }
+
+        @JavascriptInterface
+        public boolean checkForUpdates() {
+            try {
+                new Thread(() -> checkLatestRelease(), "UpdateCheckThread").start();
+                return true;
+            } catch (Exception e) {
+                postUpdateResult("Güncelleme kontrolü başlatılamadı: " + (e.getMessage() == null ? e.getClass().getSimpleName() : e.getMessage()));
+                return false;
+            }
         }
 
         @JavascriptInterface
